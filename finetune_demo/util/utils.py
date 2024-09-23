@@ -1,0 +1,405 @@
+import pandas as pd
+import json
+import requests
+import akshare as ak
+from glob import glob
+from tqdm import tqdm
+import datetime
+import time
+from datetime import date, datetime, timedelta
+from openai import OpenAI
+
+
+client = OpenAI(
+    # 下面两个参数的默认值来自环境变量，可以不加
+    api_key="sk-psnNiAwIyHGarW2R5b2597DeB7D2495596173eDe38Af35D7",
+    base_url="https://xiaoai.plus/v1",
+)
+
+def stock_news_em(symbol: str = "300059", page=1) -> pd.DataFrame:
+    """
+    按照股票代码获取新闻信息
+    """
+    url = "https://search-api-web.eastmoney.com/search/jsonp"
+    params = {
+        "cb": "jQuery3510875346244069884_1668256937995",
+        "param": '{"uid":"",'
+                 + f'"keyword":"{symbol}"'
+                 + ',"type":["cmsArticleWebOld"],"client":"web","clientType":"web","clientVersion":"curr","param":{"cmsArticleWebOld":{"searchScope":"default","sort":"default",' + f'"pageIndex":{page}' + ',"pageSize":100,"preTag":"<em>","postTag":"</em>"}}}',
+        "_": "1668256937996",
+    }
+    get = 200
+    while get:
+        try:
+            r = requests.get(url, params=params)
+            data_text = r.text
+            get = 0
+        except:
+            time.sleep(1)
+
+    data_text = r.text
+    data_json = json.loads(
+        data_text.strip("jQuery3510875346244069884_1668256937995(")[:-1]
+    )
+    temp_df = pd.DataFrame(data_json["result"]["cmsArticleWebOld"])
+    temp_df.rename(
+        columns={
+            "date": "发布时间",
+            "mediaName": "文章来源",
+            "code": "-",
+            "title": "新闻标题",
+            "content": "新闻内容",
+            "url": "新闻链接",
+            "image": "-",
+        },
+        inplace=True,
+    )
+    temp_df["关键词"] = symbol
+    temp_df = temp_df[
+        [
+            "关键词",
+            "新闻标题",
+            "新闻内容",
+            "发布时间",
+            "文章来源",
+            "新闻链接",
+        ]
+    ]
+    temp_df["新闻标题"] = (
+        temp_df["新闻标题"]
+        .str.replace(r"\(<em>", "", regex=True)
+        .str.replace(r"</em>\)", "", regex=True)
+    )
+    temp_df["新闻标题"] = (
+        temp_df["新闻标题"]
+        .str.replace(r"<em>", "", regex=True)
+        .str.replace(r"</em>", "", regex=True)
+    )
+    temp_df["新闻内容"] = (
+        temp_df["新闻内容"]
+        .str.replace(r"\(<em>", "", regex=True)
+        .str.replace(r"</em>\)", "", regex=True)
+    )
+    temp_df["新闻内容"] = (
+        temp_df["新闻内容"]
+        .str.replace(r"<em>", "", regex=True)
+        .str.replace(r"</em>", "", regex=True)
+    )
+    temp_df["新闻内容"] = temp_df["新闻内容"].str.replace(r"\u3000", "", regex=True)
+    temp_df["新闻内容"] = temp_df["新闻内容"].str.replace(r"\r\n", " ", regex=True)
+    return temp_df
+
+def get_news(symbol, max_page=100):
+    ##获取新闻信息集合
+
+    df_list = []
+    page = 0
+    while page < max_page:
+        try:
+            df_list.append(stock_news_em(symbol, page))
+            page += 1
+        except KeyError:
+            print(str(symbol) + "pages obtained for symbol: " + str(page))
+            break
+
+    news_df = pd.concat(df_list, ignore_index=True)
+    return news_df
+
+def get_company_prompt_new(symbol):
+    #获取公司介绍
+
+    index = 1
+    while index:
+        try:
+            company_profile = dict(ak.stock_individual_info_em(symbol).values)
+            index = 0
+        except:
+            print("Company Info Request Time Out! Please wait and retry.")
+    company_profile["上市时间"] = pd.to_datetime(str(company_profile["上市时间"])).strftime("%Y年%m月%d日")
+
+    template = "[公司介绍]:\n\n{股票简称}是一家在{行业}行业的领先实体，自{上市时间}成立并公开交易。截止今天，{股票简称}的总市值为{总市值}人民币，总股本数为{总股本}，流通市值为{流通市值}人民币，流通股数为{流通股}。" \
+               "\n\n{股票简称}主要在中国运营，以股票代码{股票代码}在交易所进行交易。"
+
+    formatted_profile = template.format(**company_profile)
+    stockname = company_profile['股票简称']
+    return formatted_profile, stockname
+
+def get_stock(ts_code, start_date):
+    end_date = n_weeks_after(start_date, 1)
+    start_date = start_date.split(" ")[0].replace("-", "")
+    end_date = end_date.split(" ")[0].replace("-", "")
+    get = 200
+    stock_hist_df = []
+    while get or len(stock_hist_df)==0:
+        try:
+            stock_hist_df = ak.stock_zh_a_hist(symbol=ts_code, start_date=start_date, end_date=end_date)
+            get = 0
+        except:
+            time.sleep(3)
+            continue
+
+    return stock_hist_df
+
+def get_stock_all(ts_code, start_date):
+    stock_hist_df = []
+    start_date = n_weeks_before(start_date, 1)
+    start_date = start_date.split(" ")[0].replace("-", "")
+    get = 1
+    while get or len(stock_hist_df) == 0:
+        try:
+            stock_hist_df = ak.stock_zh_a_hist(symbol=ts_code, start_date=start_date)
+            get = 0
+        except:
+            time.sleep(3)
+            continue
+
+    return stock_hist_df
+
+def transform_rate_data_online(df):
+    rates = []
+    rate_des = []
+    price = df["收盘"]
+    price = [float(p) for p in price]
+    # maxp, minp = max(price), min(price)
+    rate = (price[-1]-price[0])/price[0]
+
+    if rate > 0:
+        pre = "涨幅"
+        if rate < 0.01:
+            pre += "小于1%"
+        elif rate >= 0.01 and rate < 0.03:
+            pre += "在1%-3%之间"
+        elif rate >= 0.03 and rate < 0.05:
+            pre += "在3%-5%之间"
+        else:
+            pre += "大于5%"
+
+    elif rate < 0:
+        pre = "下跌"
+        if rate < 0.01:
+            pre += "小于1%"
+        elif rate >= 0.01 and rate < 0.03:
+            pre += "在1%-3%之间"
+        elif rate >= 0.03 and rate < 0.05:
+            pre += "在3%-5%之间"
+        else:
+            pre += "大于5%"
+
+    else:
+        pre = "股价可能持平"
+    rates.append(rate)
+    rate_des.append(pre)
+
+    return rates, rate_des
+
+def respones_gpt(system_prompt, user_input):
+    index = 1
+
+    request_time = 0
+    while index:
+        try:
+            completion = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_input}
+                ]
+            )
+            index = 0
+        except:
+            time.sleep(1)
+        request_time += 1
+
+        if request_time > 10:
+            print("request time is {}".format(request_time))
+            time.sleep(30)
+
+
+    return completion.choices[0].message.content
+
+def get_curday():
+    return date.today().strftime("%Y-%m-%d %H:%M:%S")
+
+def n_weeks_before(date_string, n, format='%Y-%m-%d %H:%M:%S'):
+    date = datetime.strptime(date_string, '%Y-%m-%d %H:%M:%S') - timedelta(days=7 * n)
+
+    return date.strftime(format=format)
+
+def n_weeks_after(date_string, n, format='%Y-%m-%d %H:%M:%S'):
+    date = datetime.strptime(date_string, '%Y-%m-%d %H:%M:%S') + timedelta(days=7 * n)
+
+    return date.strftime(format=format)
+
+def stock_concat2h5(folder):
+    df_list = []
+    csvs = glob(folder)
+    for file in tqdm(csvs):
+        df = pd.read_csv(file, encoding="utf-8", delimiter="\t")
+        df_list.append(df)
+
+    stock_daliy = pd.concat(df_list)
+    stock_daliy.to_hdf("./data/raw/stock_daily.h5", key="data")
+
+def transform_rate_data(df):
+    rates = []
+    rate_des = []
+    for i, d in df.iterrows():
+        price = [d["open1"], d["open2"], d["open3"], d["open4"], d["open5"]]
+        price = [float(p) for p in price]
+        maxp, minp = max(price), min(price)
+        rate = (maxp-minp)/float(d["original_price"])
+
+        if rate > 0:
+            pre = "上涨幅度"
+            if rate < 0.01:
+                pre += "小于1%"
+            elif rate >= 0.01 and  rate < 0.03:
+                pre += "在1%-3%之间"
+            elif rate >=0.03 and rate < 0.05:
+                pre += "在3%-5%之间"
+            else:
+                pre += "大于5%"
+
+        elif rate < 0:
+            pre = "下跌幅度"
+            if rate < 0.01:
+                pre += "小于1%"
+            elif rate >= 0.01 and rate < 0.03:
+                pre += "在1%-3%之间"
+            elif rate >= 0.03 and rate < 0.05:
+                pre += "在3%-5%之间"
+            else:
+                pre += "大于5%"
+
+        else:
+            pre = "股价可能持平"
+        rates.append(rate)
+        rate_des.append(pre)
+
+    return rates, rate_des
+
+def get_basic_and_rate(symbol, data):
+    """
+    Get and match basic data to news dataframe.
+
+    Args:
+        symbol: str
+            A-share market stock symbol
+        data: DataFrame
+            dated news data
+
+    Return:
+        financial news dataframe with matched basic_financial info and rates rates description
+    """
+    key_financials = ['报告期', '净利润同比增长率', '营业总收入同比增长率', '流动比率', '速动比率', '资产负债率']
+
+    get_financials =1
+    while get_financials:
+    # load quarterly basic data
+        try:
+            basic_quarter_financials = ak.stock_financial_abstract_ths(symbol=symbol, indicator="按单季度")
+            get_financials = 0
+        except:
+            time.sleep(1)
+            continue
+    basic_fin_dict = basic_quarter_financials.to_dict("index")
+    basic_fin_list = [dict([(key, val) for key, val in basic_fin_dict[i].items() if (key in key_financials) and val])
+                      for i in range(len(basic_fin_dict))]
+
+    # match basic financial data to news dataframe
+    matched_basic_fin = []
+    for i, row in data.iterrows():
+
+        newsweek_enddate = row['DATE']
+
+        matched_basic = {}
+        for basic in basic_fin_list:
+            # match the most current financial report
+            if basic["报告期"] < newsweek_enddate:
+                matched_basic = basic
+                break
+        matched_basic_fin.append(json.dumps(matched_basic, ensure_ascii=False))
+    rates, rates_des = transform_rate_data(data)
+    data['基本面'] = matched_basic_fin
+    data["比率"] = rates
+    data["涨跌幅"] = rates_des
+
+    return data
+
+def get_basic_financials(symbol):
+    key_financials = ['报告期', '净利润同比增长率', '营业总收入同比增长率', '流动比率', '速动比率', '资产负债率']
+
+    get_financials = 1
+    while get_financials:
+        # load quarterly basic data
+        try:
+            basic_quarter_financials = ak.stock_financial_abstract_ths(symbol=symbol, indicator="按报告期")
+            get_financials = 0
+        except:
+            time.sleep(1)
+            continue
+    basic_fin_dict = basic_quarter_financials.to_dict("index")
+    basic_fin_list = [dict([(key, val) for key, val in basic_fin_dict[i].items() if (key in key_financials) and val])
+                      for i in range(len(basic_fin_dict))]
+
+    return basic_fin_list
+
+def get_basic_new(basic_fin_list, data):
+    """
+    Get and match basic data to news dataframe.
+    适用于最新数据
+    Args:
+        symbol: str
+            A-share market stock symbol
+        data: DataFrame
+            dated news data
+
+    Return:
+        financial news dataframe with matched basic_financial info and rates rates description
+    """
+    if len(basic_fin_list) != 0:
+        # match basic financial data to news dataframe
+        # matched_basic_fin = []
+        for i, row in data.iterrows():
+
+            newsweek_enddate = row['发布时间']
+
+            matched_basic = {}
+            for basic in basic_fin_list:
+                # match the most current financial report
+                if basic["报告期"] < newsweek_enddate:
+                    matched_basic = basic
+                    break
+            # matched_basic_fin.append(json.dumps(matched_basic, ensure_ascii=False))
+    return matched_basic
+
+
+
+    # match basic financial data to news dataframe
+    # matched_basic_fin = []
+    for i, row in data.iterrows():
+
+        newsweek_enddate = row['发布时间']
+
+        matched_basic = {}
+        for basic in basic_fin_list:
+            # match the most current financial report
+            if basic["报告期"] < newsweek_enddate:
+                matched_basic = basic
+                break
+        # matched_basic_fin.append(json.dumps(matched_basic, ensure_ascii=False))
+
+    return basic_fin_list, matched_basic
+
+def print_dict(dict):
+    # dict = eval(dict)
+    str = ""
+    for key, value in dict.items():
+        str += "{} {}\n".format(key, value)
+    return str
+
+def read_news_txt(file):
+    f = open(file, "r", encoding="utf-8")
+    news = f.read()
+    news = [n.split("\t") for n in news]
+    return news
