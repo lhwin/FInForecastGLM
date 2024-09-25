@@ -75,11 +75,12 @@ def get_new_and_format_prompt(symbol, database, mode = "train"):
     else:
         df = df[df["发布时间"] < target_time]
 
-    f_record = open("record/{}.txt", "a")
-    # try:
-    records = f_record.readlines()
-    if len(records) != 0:
+    f_record = open("record/{}.txt".format(symbol), "a")
+    try:
+        records = f_record.readlines()
         df = df[df["发布时间"]>=records[-1]]
+    except:
+        pass
 
     stock_data = get_stock_all(symbol, df["发布时间"][0])
     stock_data["日期"] = stock_data["日期"].apply(lambda x: datetime.strftime(x, '%Y-%m-%d %H:%M:%S'))
