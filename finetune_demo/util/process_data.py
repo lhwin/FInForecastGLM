@@ -53,21 +53,28 @@ def read_news_and_prompt(file, symbol):
     return prompt
 
 
-def get_new_and_format_prompt(symbol):
+def get_new_and_format_prompt(symbol, mode = "train"):
     df = get_news(symbol)
     # df["CODE"] = df['CODE'].apply(lambda x: "%06d" % x)
     df.sort_values(by=["发布时间"], inplace=True)
-    target_time = n_weeks_before(get_curday(), 1)
-    df = df[df["发布时间"]<target_time]
+    target_time = n_weeks_before(get_curday(), 2)
+
     df = df.drop_duplicates(subset='发布时间')
     df = df.drop_duplicates(subset='新闻内容')
     df.reset_index(drop=True, inplace=True)
+
+    df = df[df["发布时间"]<target_time]
+
+    if mode != "train":
+        start_date = n_weeks_before(get_curday(), 2)
+        target_time = n_weeks_before(get_curday(), 1)
+        df = df[(df["发布时间"]>start_date) & (df["发布时间"]<target_time)]
 
     stock_data = get_stock_all(symbol, df["发布时间"][0])
     stock_data["日期"] = stock_data["日期"].apply(lambda x: datetime.strftime(x, '%Y-%m-%d %H:%M:%S'))
 
     matched_basic_all = get_basic_financials(symbol)
-    js = open("../data/fin_news_stock/my_data_qa_{}_aug.jsonl".format(symbol), "at", encoding="utf-8")
+    js = open("../data/fin_news_stock/{}.jsonl".format(mode), "at", encoding="utf-8")
 
     company_prompt = ""
     for i  in tqdm(range(len(df))):
@@ -109,9 +116,9 @@ def get_new_and_format_prompt(symbol):
         system_prompt_glm = ORI_SYSTEM_PROMPT.format(start_date.split(" ")[0],end_date.split(" ")[0])
 
         inp = system_prompt_glm+"\n"+content
-        sys = {"role":"system", "content":inp}
-        user = {"role":"user", "content":res}
-        # assistant = {"role":"assistant", "content":res}
+        sys = {"role":"system", "content":system_prompt_glm}
+        user = {"role":"user", "content":content}
+        assistant = {"role":"assistant", "content":res}
         # assistant = {"role":"assistant", "content":res}
         tmp["conversation"].append(sys)
         tmp["conversation"].append(user)
@@ -128,8 +135,9 @@ def sample_stock_new_predict(file):
     codes.append("600857")
     codes.append("002607")
     codes.reverse()
-    for code in codes[3:]:
+    for code in codes[2:]:
         get_new_and_format_prompt(code)
+        get_new_and_format_prompt(code, "dev")
 
 
 if __name__ == "__main__":
