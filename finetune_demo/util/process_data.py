@@ -3,7 +3,7 @@ from datetime import datetime
 import random
 import numpy as np
 
-random.seed(345571)
+random.seed(34557)
 B_INST, E_INST = "[INST]", "[/INST]"
 B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
 
@@ -75,14 +75,20 @@ def get_new_and_format_prompt(symbol, database, mode = "train"):
     else:
         df = df[df["发布时间"] < target_time]
 
-    f_record = open("record/{}.txt".format(symbol), "a")
     try:
+        f_record = open("record/{}.txt".format(symbol), "r")
         records = f_record.readlines()
         df = df[df["发布时间"]>=records[-1]]
     except:
         pass
 
+    if len(df)==0:
+        return None
+
+    f_record = open("record/{}.txt".format(symbol), "a")
     stock_data = get_stock_all(symbol, df["发布时间"][0])
+    if stock_data is None:
+        return None
     stock_data["日期"] = stock_data["日期"].apply(lambda x: datetime.strftime(x, '%Y-%m-%d %H:%M:%S'))
 
     matched_basic_all = get_basic_financials(symbol)
@@ -142,25 +148,30 @@ def get_new_and_format_prompt(symbol, database, mode = "train"):
         js.write(json.dumps(tmp, ensure_ascii=False) + "\n")
 
 
-def sample_stock_new_predict(file):
+def sample_stock_new_predict(file, target_path):
     df = pd.read_csv(file, delimiter="\t")
     df["CODE"] = df['CODE'].apply(lambda x: "%06d" % x)
     codes = np.unique(df["CODE"])
-    codes = random.choices(codes, k=10)
-    codes.append("600519")
-    codes.append("600857")
-    codes.append("002607")
-    codes.reverse()
-    for code in codes[2:]:
-        # get_new_and_format_prompt(code)
-        get_new_and_format_prompt(code, "dev")
+    random.shuffle(codes)
+
+    codes[0] = "600519"
+
+    for code in codes:
+        csv_path = "{}/{}.csv".format(target_path, code)
+        df = pd.read_csv(csv_path)
+        if len(df)<700:
+            df.close()
+            continue
+        get_new_and_format_prompt(code, target_path)
+        get_new_and_format_prompt(code, target_path,"dev")
 
 
 if __name__ == "__main__":
     # comp = "./data/raw/company announcement.txt"
     # ss = read_news_txt(comp)
+    target_path = "../data/stock_news/"
     file_path = "../data/train.csv"
-    sample_stock_new_predict(file_path)
+    sample_stock_new_predict(file_path, target_path)
     symbol = "000967"
     # news = read_news_and_prompt(file_path, symbol)
     # prompt = get_new_and_format_prompt(symbol)

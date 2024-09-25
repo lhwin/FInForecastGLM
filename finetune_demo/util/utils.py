@@ -203,11 +203,17 @@ def get_stock_all(ts_code, start_date):
     start_date = n_weeks_before(start_date, 1)
     start_date = start_date.split(" ")[0].replace("-", "")
     get = 1
+    count = 0
     while get or len(stock_hist_df) == 0:
         try:
             stock_hist_df = ak.stock_zh_a_hist(symbol=ts_code, start_date=start_date)
             get = 0
+            if len(stock_hist_df) == [] :
+                return None
         except:
+            count+=1
+            if len(stock_hist_df) == [] and count > 5:
+                return None
             time.sleep(3)
             continue
 
@@ -471,14 +477,21 @@ def save_stock_news(file_path, data_path):
     codes = list(codes)
 
     for i in tqdm(range(len(codes))):
-        df = get_news(codes[i])
+
+        filename = "{}/{}.csv".format(data_path, codes[i])
+        if os.path.isfile(filename):
+            continue
+        try:
+            df = get_news(codes[i])
+        except:
+            continue
 
         df.sort_values(by=["发布时间"], inplace=True)
         df = df.drop_duplicates(subset='发布时间')
         df = df.drop_duplicates(subset='新闻内容')
         df.reset_index(drop=True, inplace=True)
 
-        filename = "{}/{}.csv".format(data_path, codes[i])
+
         if not os.path.isfile(filename):
             df.to_csv(filename, index=False)
         else:
@@ -489,6 +502,7 @@ def save_stock_news(file_path, data_path):
 
             news_df = pd.concat([old_df, df], ignore_index=True)
             news_df.to_csv(filename, index=False)
+            old_df.close()
 
 if __name__ == "__main__":
     tickers =  ['002607', '600857', '600519', '603286', '600867', '000797', '002908', '000566', '600319', '000411', '300326', '002341', '300644']
