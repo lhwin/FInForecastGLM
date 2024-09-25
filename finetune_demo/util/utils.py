@@ -1,6 +1,7 @@
 import os
 import csv
 import pandas as pd
+import numpy as np
 import json
 import requests
 import akshare as ak
@@ -15,7 +16,7 @@ from openai import OpenAI
 
 client = OpenAI(
     # 下面两个参数的默认值来自环境变量，可以不加
-    api_key="sk-psnNiAwIyHGarW2R5b2597DeB7D2495596173eDe38Af35D7",
+    api_key="sk-kk1BywoOENWbUoWcF3AeE226177141E8A28b098f397f8674",
     base_url="https://xiaoai.plus/v1",
 )
 
@@ -32,7 +33,6 @@ def initialize_csv(filename):
     with open(filename, "w", newline='', encoding="utf-8") as file:
         writer = csv.writer(file)
         writer.writerow(["prompt", "answer"])
-
 
 def query_gpt4(symbol_list, min_past_weeks=1, max_past_weeks=2, with_basics=True):
     for symbol in symbol_list:
@@ -252,7 +252,7 @@ def transform_rate_data_online(df):
 
 def respones_gpt(system_prompt, user_input):
     index = 1
-
+    time.sleep(1)
     request_time = 0
     while index:
         try:
@@ -462,6 +462,36 @@ def read_news_txt(file):
     news = [n.split("\t") for n in news]
     return news
 
+def save_stock_news(file_path, data_path):
+    codes = ['002607', '600857', '600519', '603286', '600867', '000797', '002908', '000566', '600319', '000411', '300326', '002341', '300644']
+
+    df = pd.read_csv(file_path, delimiter="\t")
+    df["CODE"] = df['CODE'].apply(lambda x: "%06d" % x)
+    codes = np.unique(df["CODE"])
+    codes = list(codes)
+
+    for i in tqdm(range(len(codes))):
+        df = get_news(codes[i])
+
+        df.sort_values(by=["发布时间"], inplace=True)
+        df = df.drop_duplicates(subset='发布时间')
+        df = df.drop_duplicates(subset='新闻内容')
+        df.reset_index(drop=True, inplace=True)
+
+        filename = "{}/{}.csv".format(data_path, codes[i])
+        if not os.path.isfile(filename):
+            df.to_csv(filename, index=False)
+        else:
+            old_df = pd.read_csv(filename)
+
+            start_date = old_df["发布时间"][len(old_df) - 1]
+            df = df[df["发布时间"] > start_date]
+
+            news_df = pd.concat([old_df, df], ignore_index=True)
+            news_df.to_csv(filename, index=False)
+
 if __name__ == "__main__":
-    tickers = tickers = ['300644', '002341', '300326', '000411', '600319', '000566', '002908', '000797', '600867', '603286']
-    query_gpt4(tickers)
+    tickers =  ['002607', '600857', '600519', '603286', '600867', '000797', '002908', '000566', '600319', '000411', '300326', '002341', '300644']
+    # query_gpt4(tickers)
+    train_csv = "../data/train.csv"
+    save_stock_news(train_csv, "../data/stock_news")

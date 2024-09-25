@@ -53,8 +53,12 @@ def read_news_and_prompt(file, symbol):
     return prompt
 
 
-def get_new_and_format_prompt(symbol, mode = "train"):
-    df = get_news(symbol)
+def get_new_and_format_prompt(symbol, database, mode = "train"):
+    try:
+        csv_path = "{}/{}.csv".format(database, symbol)
+        df = pd.read_csv(csv_path)
+    except:
+        df = get_news(symbol)
     # df["CODE"] = df['CODE'].apply(lambda x: "%06d" % x)
     df.sort_values(by=["发布时间"], inplace=True)
     target_time = n_weeks_before(get_curday(), 2)
@@ -63,12 +67,19 @@ def get_new_and_format_prompt(symbol, mode = "train"):
     df = df.drop_duplicates(subset='新闻内容')
     df.reset_index(drop=True, inplace=True)
 
-    df = df[df["发布时间"]<target_time]
-
     if mode != "train":
         start_date = n_weeks_before(get_curday(), 2)
         target_time = n_weeks_before(get_curday(), 1)
         df = df[(df["发布时间"]>start_date) & (df["发布时间"]<target_time)]
+        df.reset_index(drop=True, inplace=True)
+    else:
+        df = df[df["发布时间"] < target_time]
+
+    f_record = open("record/{}.txt", "a")
+    # try:
+    records = f_record.readlines()
+    if len(records) != 0:
+        df = df[df["发布时间"]>=records[-1]]
 
     stock_data = get_stock_all(symbol, df["发布时间"][0])
     stock_data["日期"] = stock_data["日期"].apply(lambda x: datetime.strftime(x, '%Y-%m-%d %H:%M:%S'))
@@ -77,11 +88,13 @@ def get_new_and_format_prompt(symbol, mode = "train"):
     js = open("../data/fin_news_stock/{}.jsonl".format(mode), "at", encoding="utf-8")
 
     company_prompt = ""
-    for i  in tqdm(range(len(df))):
+    for i in tqdm(range(len(df))):
         tmp = {}
         tmp["conversation"] = []
         d = df.loc[i, :]
         # symbol = d["CODE"]
+
+        f_record.write(d["发布时间"]+"\n")
 
         start_date = n_weeks_before(d["发布时间"], 1)
         end_date = d["发布时间"]
@@ -105,6 +118,7 @@ def get_new_and_format_prompt(symbol, mode = "train"):
         volatility = "\n 自{} 至 {} {}股票{} \n".format(start_date.split(" ")[0], end_date.split(" ")[0], stock, past_rate)
         prompt += prompt+volatility
         news_content = ""
+
         for j,d1 in dfnews.iterrows():
             news_content += "[新闻标题]"+"\n"+d1["新闻标题"]+"\n"+"发布时间："+d1["发布时间"]+"\n"+"[新闻内容]"+"\n"+d1["新闻内容"]+"\n"
         basic = "\n如下所列为600519近期的一些金融基本面信息，记录时间为{}:\n[金融基本面]\n".format(matched_basic["报告期"])+print_dict(matched_basic)
@@ -122,6 +136,7 @@ def get_new_and_format_prompt(symbol, mode = "train"):
         # assistant = {"role":"assistant", "content":res}
         tmp["conversation"].append(sys)
         tmp["conversation"].append(user)
+        tmp["conversation"].append(assistant)
 
         js.write(json.dumps(tmp, ensure_ascii=False) + "\n")
 
@@ -136,7 +151,7 @@ def sample_stock_new_predict(file):
     codes.append("002607")
     codes.reverse()
     for code in codes[2:]:
-        get_new_and_format_prompt(code)
+        # get_new_and_format_prompt(code)
         get_new_and_format_prompt(code, "dev")
 
 
