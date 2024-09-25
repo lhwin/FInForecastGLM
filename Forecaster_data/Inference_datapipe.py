@@ -170,9 +170,9 @@ def cur_financial_data(symbol, start_date, end_date, with_basics = True):
     
     return data
 
-def get_all_prompts_online(symbol, with_basics=True, max_news_perweek = 3, weeks_before = 2):
+def get_all_prompts_online(symbol, end_date, with_basics=True, max_news_perweek = 3, weeks_before = 2):
 
-    end_date = get_curday()
+    end_date = end_date
     start_date = n_weeks_before(end_date, weeks_before)
 
     company_prompt, stock = get_company_prompt_new(symbol)

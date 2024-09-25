@@ -53,11 +53,11 @@ def read_news_and_prompt(file, symbol):
     return prompt
 
 
-def get_new_and_format_prompt(symbol):
+def get_new_and_format_prompt(symbol,  start_date, date="2024-9-17", mode = 0):
     df = get_news(symbol)
     # df["CODE"] = df['CODE'].apply(lambda x: "%06d" % x)
     df.sort_values(by=["发布时间"], inplace=True)
-    target_time = n_weeks_before(get_curday(), 1)
+    target_time = n_weeks_before(date, 1)
     df = df[df["发布时间"]<target_time]
     df = df.drop_duplicates(subset='发布时间')
     df = df.drop_duplicates(subset='新闻内容')
@@ -128,7 +128,7 @@ def sample_stock_new_predict(file):
     codes.append("600857")
     codes.append("002607")
     codes.reverse()
-    for code in codes[3:]:
+    for code in codes[4:]:
         get_new_and_format_prompt(code)
 
 

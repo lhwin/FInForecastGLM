@@ -16,6 +16,59 @@ lora_module_dict = {
 }
 
 
+def append_to_csv(filename, input_data, output_data):
+    with open(filename, mode='a', newline='', encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow([input_data, output_data])
+
+
+def initialize_csv(filename):
+    with open(filename, mode='w', newline='', encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow(["prompt", "answer"])
+
+
+def query_gpt4(symbol_list, min_past_weeks=1, max_past_weeks=2, with_basics=True):
+    for symbol in symbol_list:
+
+        csv_file = f'{DATA_DIR}/{symbol}_{start_date}_{end_date}_gpt-4.csv' if with_basics else \
+            f'{DATA_DIR}/{symbol}_{start_date}_{end_date}_nobasics_gpt-4.csv'
+
+        if not os.path.exists(csv_file):
+            initialize_csv(csv_file)
+            pre_done = 0
+        else:
+            df = pd.read_csv(csv_file, encoding="utf-8")
+            pre_done = len(df)
+
+        prompts = get_all_prompts_new(symbol, min_past_weeks, max_past_weeks, with_basics)
+
+        for i, prompt in enumerate(prompts):
+
+            if i < pre_done:
+                continue
+
+            print(f"{symbol} - {i}")
+
+            cnt = 0
+            while cnt < 5:
+                try:
+                    completion = client.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": SYSTEM_PROMPT},
+                            {"role": "user", "content": prompt}
+                        ]
+                    )
+                    print("==Generate answer successfully==")
+                    break
+                except Exception:
+                    cnt += 1
+                    print(f'retry cnt {cnt}')
+
+            answer = completion.choices[0].message.content if cnt < 5 else ""
+            append_to_csv(csv_file, prompt, answer)
+
 def tokenize(args, tokenizer, feature):
     
     prompt_ids = tokenizer.encode(
