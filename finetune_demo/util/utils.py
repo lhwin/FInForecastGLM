@@ -1,7 +1,10 @@
+import os
+import csv
 import pandas as pd
 import json
 import requests
 import akshare as ak
+from Ashare_news import get_all_prompts_new
 from glob import glob
 from tqdm import tqdm
 import datetime
@@ -15,6 +18,61 @@ client = OpenAI(
     api_key="sk-psnNiAwIyHGarW2R5b2597DeB7D2495596173eDe38Af35D7",
     base_url="https://xiaoai.plus/v1",
 )
+
+SYSTEM_PROMPT = "你是一名经验丰富的股票市场分析师。你的任务是根据公司在过去几周内的相关新闻和季度财务状况，列出公司的积极发展和潜在担忧，然后结合你对整体金融经济市场的判断，对公司未来一周的股价变化提供预测和分析。" \
+    "你的回答语言应为中文。你的回答格式应该如下：\n\n[积极发展]：\n1. ...\n\n[潜在担忧]：\n1. ...\n\n[预测和分析]：\n...\n"
+
+def append_to_csv(filename, input_data, output_data):
+    with open(filename, mode='a', newline='', encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow([input_data, output_data])
+
+
+def initialize_csv(filename):
+    with open(filename, "w", newline='', encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow(["prompt", "answer"])
+
+
+def query_gpt4(symbol_list, min_past_weeks=1, max_past_weeks=2, with_basics=True):
+    for symbol in symbol_list:
+
+        csv_file = f'../data/csv/{symbol}_nobasics_gpt-4.csv'
+
+        if not os.path.exists(csv_file):
+            initialize_csv(csv_file)
+            pre_done = 0
+        else:
+            df = pd.read_csv(csv_file, encoding="utf-8")
+            pre_done = len(df)
+
+        prompts = get_all_prompts_new(symbol, min_past_weeks, max_past_weeks, with_basics)
+
+        for i, prompt in enumerate(prompts):
+
+            if i < pre_done:
+                continue
+
+            print(f"{symbol} - {i}")
+
+            cnt = 0
+            while cnt < 5:
+                try:
+                    completion = client.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": SYSTEM_PROMPT},
+                            {"role": "user", "content": prompt}
+                        ]
+                    )
+                    print("==Generate answer successfully==")
+                    break
+                except Exception:
+                    cnt += 1
+                    print(f'retry cnt {cnt}')
+
+            answer = completion.choices[0].message.content if cnt < 5 else ""
+            append_to_csv(csv_file, prompt, answer)
 
 def stock_news_em(symbol: str = "300059", page=1) -> pd.DataFrame:
     """
@@ -403,3 +461,7 @@ def read_news_txt(file):
     news = f.read()
     news = [n.split("\t") for n in news]
     return news
+
+if __name__ == "__main__":
+    tickers = tickers = ['300644', '002341', '300326', '000411', '600319', '000566', '002908', '000797', '600867', '603286']
+    query_gpt4(tickers)
