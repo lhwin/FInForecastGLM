@@ -156,7 +156,11 @@ def sample_stock_new_predict(file, target_path):
 
     codes[0] = "600519"
 
+    total = 10
+    num = 0
     for code in codes:
+        if num > total:
+            break
         csv_path = "{}/{}.csv".format(target_path, code)
         df = pd.read_csv(csv_path)
         if len(df)<700:
