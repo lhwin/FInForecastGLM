@@ -74,11 +74,13 @@ def get_new_and_format_prompt(symbol, database, mode = "train"):
         df.reset_index(drop=True, inplace=True)
     else:
         df = df[df["发布时间"] < target_time]
+        df.reset_index(drop=True, inplace=True)
 
     try:
         f_record = open("record/{}.txt".format(symbol), "r")
         records = f_record.readlines()
         df = df[df["发布时间"]>=records[-1]]
+        df.reset_index(drop=True, inplace=True)
     except:
         pass
 
