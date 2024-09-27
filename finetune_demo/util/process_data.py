@@ -154,7 +154,7 @@ def sample_stock_new_predict(file, target_path):
     codes = np.unique(df["CODE"])
     random.shuffle(codes)
 
-    codes[0] = "600519"
+    # codes[0] = "600519"
 
     total = 10
     num = 0
@@ -162,10 +162,10 @@ def sample_stock_new_predict(file, target_path):
         if num > total:
             break
         csv_path = "{}/{}.csv".format(target_path, code)
-        df = pd.read_csv(csv_path)
-        if len(df)<700:
-            df.close()
-            continue
+        # df = pd.read_csv(csv_path)
+        # if len(df)<700:
+        #     df.close()
+        #     continue
         get_new_and_format_prompt(code, target_path)
         get_new_and_format_prompt(code, target_path,"dev")
 
