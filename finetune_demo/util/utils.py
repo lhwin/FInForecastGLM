@@ -16,7 +16,7 @@ from openai import OpenAI
 
 client = OpenAI(
     # 下面两个参数的默认值来自环境变量，可以不加
-    api_key="sk-kk1BywoOENWbUoWcF3AeE226177141E8A28b098f397f8674",
+    api_key="sk-L1jUZ934tcFz0Ih02067B274432c4cFcA2D34972F2F201D0",
     base_url="https://xiaoai.plus/v1",
 )
 
