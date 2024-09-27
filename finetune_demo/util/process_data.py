@@ -163,10 +163,10 @@ def sample_stock_new_predict(file, target_path):
             break
         csv_path = "{}/{}.csv".format(target_path, code)
         df = pd.read_csv(csv_path)
-        if len(df)<700:
+        if len(df) < 700:
             df.close()
             continue
-        get_new_and_format_prompt(code, target_path)
+        # get_new_and_format_prompt(code, target_path)
         get_new_and_format_prompt(code, target_path,"dev")
 
 

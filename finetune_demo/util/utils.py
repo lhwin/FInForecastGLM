@@ -480,9 +480,13 @@ def save_stock_news(file_path, data_path):
 
         filename = "{}/{}.csv".format(data_path, codes[i])
         if os.path.isfile(filename):
-            continue
+            dfp = pd.read_csv(filename)
+            cur = dfp["发布时间"][len(dfp)-1].split(" ")[0]
+            cur_time = get_curday().split(" ")[0]
+            if cur_time == cur:
+                continue
         try:
-            df = get_news(codes[i])
+            df = get_news(codes[i], 3)
         except:
             continue
 
@@ -502,7 +506,7 @@ def save_stock_news(file_path, data_path):
 
             news_df = pd.concat([old_df, df], ignore_index=True)
             news_df.to_csv(filename, index=False)
-            old_df.close()
+            del old_df, news_df, df
 
 if __name__ == "__main__":
     tickers =  ['002607', '600857', '600519', '603286', '600867', '000797', '002908', '000566', '600319', '000411', '300326', '002341', '300644']
