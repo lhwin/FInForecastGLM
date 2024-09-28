@@ -30,7 +30,7 @@ training_args:
   # adam_epsilon: 1e-6
   # uncomment the following line to detect nan or inf values
   # debug: underflow_overflow
-  predict_with_generate: true
+  predict_with_generate: false
   # see `transformers.GenerationConfig`
   generation_config:
     max_new_tokens: 512
