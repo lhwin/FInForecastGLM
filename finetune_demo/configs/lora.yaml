@@ -3,8 +3,8 @@ data_config:
   val_file: dev.json
   test_file: dev.json
   num_proc: 16
-max_input_length: 256
-max_output_length: 512
+max_input_length: 1024
+max_output_length: 1024
 training_args:
   # see `transformers.Seq2SeqTrainingArguments`
   output_dir: ./output
