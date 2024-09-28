@@ -527,7 +527,7 @@ def main(
             return_tensors='pt',
         ),
         train_dataset=train_dataset,
-        eval_dataset=val_dataset.select(list(range(50))),
+        eval_dataset=val_dataset.select(list(range(55))),
         tokenizer=tokenizer if use_tokenizer else None,  # LORA does not need tokenizer
         compute_metrics=functools.partial(compute_metrics, tokenizer=tokenizer),
     )
