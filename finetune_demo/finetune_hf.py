@@ -79,6 +79,7 @@ class Seq2SeqTrainer(_Seq2SeqTrainer):
         if self.args.predict_with_generate:
             output_ids = inputs.pop('output_ids')
         input_ids = inputs['input_ids']
+        print(input_ids)
         loss, generated_tokens, labels = super().prediction_step(
             model, inputs, prediction_loss_only, ignore_keys, **gen_kwargs
         )
