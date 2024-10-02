@@ -23,18 +23,18 @@ def interviewer(txt_path, start=1, group_length=5):
     while index < length:
 
         tmp_question = questions[index:index+group_length]
-        print("目前进行 第{}至{} 共{}题".format(index, index+group_length, length))
+        print("目前进行 第{}至{} 共{}题".format(index+1, index+1+group_length, length))
         for i, q in enumerate(tmp_question):
             content = q.split("\n")
             qs = content[0]
             answer = content[1:]
-            print("第 {} 题".format(index+i))
+            print("第 {} 题".format(index+i+1))
             print(qs)
 
             sure = input("Do you know?")
 
             if sure == "n":
-                print("第 {} 题答案：".format(index))
+                print("第 {} 题答案：".format(index+i+1))
                 print("\n".join(answer))
 
             if i>=group_length-1:
@@ -52,4 +52,4 @@ if __name__ == "__main__":
     pdf_file_path = './datas/大语言模型面试题最终版.pdf'
     txt_file_path = './datas/大语言模型面试题最终版.txt'
     # pdf_to_text(pdf_file_path, txt_file_path)
-    interviewer(txt_file_path, 94)
+    interviewer(txt_file_path, 173)
