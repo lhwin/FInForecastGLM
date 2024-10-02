@@ -94,12 +94,12 @@ def get_new_and_format_prompt(symbol, database, mode = "train"):
     stock_data["日期"] = stock_data["日期"].apply(lambda x: datetime.strftime(x, '%Y-%m-%d %H:%M:%S'))
 
     matched_basic_all = get_basic_financials(symbol)
-    js = open("../data/fin_news_stock/{}.jsonl".format(mode), "at", encoding="utf-8")
+    js = open("../datas/{}.json".format(mode), "at", encoding="utf-8")
 
     company_prompt = ""
     for i in tqdm(range(len(df))):
         tmp = {}
-        tmp["conversation"] = []
+        tmp["conversations"] = []
         d = df.loc[i, :]
         # symbol = d["CODE"]
 
@@ -113,6 +113,10 @@ def get_new_and_format_prompt(symbol, database, mode = "train"):
 
         if len(dfnews)<2:
             continue
+
+        while len(dfnews)>=5:
+            dfnews = dfnews[::2]
+
         if i == 0 or company_prompt=="":
             company_prompt, stock = get_company_prompt_new(symbol)
         stock_data_interval_past = stock_data[(stock_data['日期'] >= start_date) & (stock_data['日期'] <= end_date)]
@@ -143,9 +147,9 @@ def get_new_and_format_prompt(symbol, database, mode = "train"):
         user = {"role":"user", "content":content}
         assistant = {"role":"assistant", "content":res}
         # assistant = {"role":"assistant", "content":res}
-        tmp["conversation"].append(sys)
-        tmp["conversation"].append(user)
-        tmp["conversation"].append(assistant)
+        tmp["conversations"].append(sys)
+        tmp["conversations"].append(user)
+        tmp["conversations"].append(assistant)
 
         js.write(json.dumps(tmp, ensure_ascii=False) + "\n")
 
