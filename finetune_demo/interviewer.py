@@ -1,5 +1,5 @@
 import pdfplumber
-
+import os
 def pdf_to_text(pdf_path, txt_path):
     # 打开PDF文件
     with pdfplumber.open(pdf_path) as pdf:
@@ -44,7 +44,7 @@ def interviewer(txt_path, start=1, group_length=5):
                     break
                 else:
                     break
-
+        os.system("cls")
 
 
 
