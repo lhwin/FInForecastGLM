@@ -1,0 +1,9 @@
+[
+    {
+        "model": "claude-3-5-sonnet-20240620",
+        "api_key": "sk-uLPxcqRQ4r9eFvDD7225F90eEa0f479dB2D918E6AbBfF934",
+        "temperature": 0.8,
+        "max_tokens": 4000,
+        "model_client_cls": "UniAPIModelClient"
+    }
+]

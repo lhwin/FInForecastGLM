@@ -65,6 +65,7 @@ def get_new_and_format_prompt(symbol, database, mode = "train"):
 
     df = df.drop_duplicates(subset='发布时间')
     df = df.drop_duplicates(subset='新闻内容')
+    df = df.drop_duplicates(subset='新闻标题')
     df.reset_index(drop=True, inplace=True)
 
     if mode != "train":
