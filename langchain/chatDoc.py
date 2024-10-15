@@ -1,11 +1,12 @@
-from langchain.document_loaders import TextLoader, DirectoryLoader, PyMuPDFLoader
+from langchain.document_loaders import TextLoader, GithubFileLoader, PyMuPDFLoader
+from langchain.document_loaders import GithubFileLoader
 
 def read_file(file_name):
     f = open(file_name, "r", encoding="utf-8")
     file_doc = f.read()
 
     if file_name.endswith(".txt"):  
-        loader = TextLoader(file_doc)
+        loader = TextLoader([file_doc])
         
     elif file_name.endswith(".pdf"):
         loader = PyMuPDFLoader(file_doc)
