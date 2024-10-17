@@ -35,6 +35,6 @@ if clicked:
 
 _, file_list_xlsx = get_file_list(".xlsx", input_folder)
 if file_list_xlsx:
-
+    pass
 st.title("数据分析")
 st.sidebar.selectbox("选择当前目录加载的文件", file_list_xlsx)
